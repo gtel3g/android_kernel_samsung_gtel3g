@@ -43,7 +43,7 @@ static const struct csi_pclk_cfg csi_pclk_setting[CSI_PCLK_CFG_COUNTER] = {
 #if defined(CONFIG_ARCH_SCX30G)
 static void dpy_ab_clr(void)
 {
-	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x1F);
+	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x3F);
 }
 
 static void dpy_a_enable(void)
@@ -56,6 +56,11 @@ static void dpy_b_enable(void)
 {
 	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x07);
 	sci_glb_set(SPRD_MMAHB_BASE + 0x000C, 0x0F);
+}
+
+static void dpy_c_enable(void)
+{
+	sci_glb_set(SPRD_MMAHB_BASE + 0x000C, 0x20);
 }
 
 static void dpy_ab_sync(void)
@@ -186,6 +191,11 @@ void dphy_init(u32 pclk, u32 phy_id)
 
 	if (0x03 == (phy_id & 0x03)) {
 		dpy_ab_sync();
+	}
+
+	if (0x04 == (phy_id & 0x04)) {
+		dpy_c_enable();
+		dphy_init_common(pclk, phy_id, 1);
 	}
 #else
 	dphy_init_common(pclk, phy_id, 1);

@@ -155,9 +155,10 @@ struct dcam_info {
 	uint32_t                   capture_mode;
 	uint32_t                   skip_number;
 	uint32_t                   flash_status;
-	uint32_t                   flash_threshold;	
+	uint32_t                   flash_threshold;
 	uint32_t                   after_af;
 	struct timeval         timestamp;
+	struct timeval         frame_last_timestamp;
 };
 struct dcam_dev {
 	struct list_head         dcam_devlist;
@@ -302,7 +303,7 @@ LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
 {
 	
 
-#if defined(CONFIG_MACH_CORE3_W)||defined(CONFIG_MACH_GRANDNEOVE3G) || defined(CONFIG_MACH_VIVALTO5MVE3G)
+#if defined(CONFIG_MACH_CORE3_W)||defined(CONFIG_MACH_GRANDNEOVE3G) || defined(CONFIG_MACH_VIVALTO5MVE3G) || defined(CONFIG_MACH_VIVALTO3MVE3G_LTN) || defined(CONFIG_MACH_J13G) || defined(CONFIG_MACH_VIVALTO3MVEML3G) 
 
 	if(flash_torch_status==1)
 		return 0;
@@ -1828,6 +1829,42 @@ LOCAL int v4l2_qbuf(struct file *file,
 	mutex_unlock(&dev->dcam_mutex);
 	return ret;
 }
+
+LOCAL int sprd_v4l2_check_frame_timestamp(struct dcam_frame *frame, struct dcam_dev* param, struct timeval *tv)
+{
+	int                                  ret = DCAM_RTN_SUCCESS;
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+	struct dcam_info         *info = NULL;
+	struct timeval              timestamp;
+	uint32_t                         flag = 0;
+
+	info = &dev->dcam_cxt;
+	timestamp.tv_sec = tv->tv_sec;
+	timestamp.tv_usec = tv->tv_usec;
+	DCAM_TRACE("DCAM: sprd_v4l2_check_frame_timestamp, time, %d %d \n",
+		(int)timestamp.tv_sec, (int)timestamp.tv_usec);
+	if ((timestamp.tv_sec == info->frame_last_timestamp.tv_sec)
+		&& (timestamp.tv_usec - info->frame_last_timestamp.tv_usec >= 1)){
+		flag = 0;
+	} else if (timestamp.tv_sec > info->frame_last_timestamp.tv_sec) {
+		flag = 0;
+	} else {
+		flag = 1;
+	}
+
+	if (flag) {
+		printk("V4L2: sprd_v4l2_check_frame_timestamp, %d %d %d %d \n", (int)timestamp.tv_sec, (int)timestamp.tv_usec,
+			(int)info->frame_last_timestamp.tv_sec, (int)info->frame_last_timestamp.tv_usec);
+		dcam_frame_unlock(frame);
+		ret =  DCAM_RTN_PARA_ERR;
+	}
+	else {
+		info->frame_last_timestamp.tv_sec = timestamp.tv_sec;
+		info->frame_last_timestamp.tv_usec = timestamp.tv_usec;
+	}
+	return ret;
+}
+
 LOCAL int v4l2_dqbuf(struct file *file,
 			void *priv,
 			struct v4l2_buffer *p)
@@ -1864,6 +1901,11 @@ LOCAL int v4l2_dqbuf(struct file *file,
 		p->reserved = node.height;
 		p->sequence = node.reserved;
 		path = &dev->dcam_cxt.dcam_path[p->type];
+		DCAM_TRACE("V4L2: v4l2_dqbuf, %d %d %d \n", node.index, path->frm_id_base, node.index-path->frm_id_base);
+		if (sprd_v4l2_check_frame_timestamp(path->frm_ptr[node.index-path->frm_id_base], dev, &p->timestamp)) {
+			p->flags = V4L2_SYS_BUSY;
+			return DCAM_RTN_SUCCESS;
+		}
 		memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
 	} else {
 		if (p->flags == V4L2_TIMEOUT)

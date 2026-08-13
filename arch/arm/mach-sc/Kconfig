@@ -77,13 +77,13 @@ config ADIE_SC2723S
 	  Say Y here to support for Spreadtrum a-die sc2723S chip.
 
 config LDOGEN0_VCCQ
-	bool "eMMC power vccq select LDOGEN0
+	bool "eMMC power vccq select LDOGEN0"
 	default n
 	help
 	  Support LDOGEN0 -  eMMC VCCQ power
 
 config LDOGEN1_VCCQ
-	bool "eMMC power vccq select LDOGEN1
+	bool "eMMC power vccq select LDOGEN1"
 	default n
 	help
 	  Support LDOGEN1 -  eMMC VCCQ power

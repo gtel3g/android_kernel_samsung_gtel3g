@@ -13,28 +13,30 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/bitops.h>
-#include <linux/delay.h>
-#include <linux/kernel.h>
 #include <mach/hardware.h>
 #include <mach/board.h>
-#include <video/sensor_drv_k.h>
-#include "../sensor_drv_sprd.h"
+#include <mach/adi.h>
+#include <linux/leds.h>
+#include <linux/mfd/sm5701_core.h>
 
-
-int sensor_power_on(uint8_t sensor_id, struct sensor_power *main_cfg, struct sensor_power *sub_cfg)
+int sprd_flash_on(void)
 {
-	int ret = 0;
-	(void)sensor_id;(void)main_cfg;(void)sub_cfg;
-
-	return ret;
+	sm5701_led_ready(MOVIE_MODE);
+	sm5701_set_fleden(SM5701_FLEDEN_ON_MOVIE);
+		return 0;
 }
 
-int sensor_power_off(uint8_t sensor_id, struct sensor_power *main_cfg, struct sensor_power *sub_cfg)
+int sprd_flash_high_light(void)
 {
-	int ret = 0;
-	(void)sensor_id;(void)main_cfg;(void)sub_cfg;
+	sm5701_led_ready(FLASH_MODE);
+	sm5701_set_fleden(SM5701_FLEDEN_ON_FLASH);
+		return 0;
+}
 
+int sprd_flash_close(void)
+{
+	sm5701_set_fleden(SM5701_FLEDEN_DISABLED);
+	sm5701_led_ready(LED_DISABLE);
 
-	return ret;
+	return 0;
 }

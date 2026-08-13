@@ -27,44 +27,17 @@ static int sensor_sr200pc20m_poweron(struct sensor_power *main_cfg, struct senso
 	int ret = 0;
 
 	/* Set default status for main and sub sensor */
-
-	sensor_k_sensor_sel(SENSOR_SUB); // Select sub sensor (sensor SR130PC20);
-	sensor_k_set_pd_level(0); // Power down valid for SR130PC20
-	sensor_k_set_rst_level(0); // Reset valid for SR130PC20
-
 	sensor_k_sensor_sel(SENSOR_MAIN); // Select main sensor(sensor SR200PC20)
-	sensor_k_set_pd_level(0); // Power down valid for SR200PC20
-	sensor_k_set_rst_level(0); // Reset valid for SR200PC20
-
-	mdelay(1);
-
-	/* Power on sequence */
-	sensor_k_set_voltage_cammot(SENSOR_VDD_2800MV); // AF monitor
-
-	mdelay(3); // Delay 3ms > 2ms
 
 	sensor_k_set_voltage_iovdd(SENSOR_VDD_1800MV); // IO vdd
-
-	udelay(1); // Delay 1us >= 0us
-
+	udelay(3); // Delay 1us >= 0us
 	sensor_k_set_voltage_avdd(SENSOR_VDD_2800MV); // Anolog vdd
-
-	udelay(1); // Delay 1us >= 0us
-
-	sensor_k_set_voltage_dvdd(SENSOR_VDD_1800MV); // Core vdd
-
-	udelay(1); // Delay 1us >= 0us
-
+	mdelay(2); // Delay 1us >= 0us
 	sensor_k_set_pd_level(1); // Power down invalid for SR200PC20
-
-	udelay(1); // Delay 1us >= 0us
-
+	mdelay(2); // Delay 1us >= 0us
 	sensor_k_set_mclk(SENSOR_DEFALUT_MCLK);
-
-	mdelay(12); // Delay 12ms > 10ms
-
+	mdelay(30); // Delay 12ms > 10ms
 	sensor_k_set_rst_level(1); // Reset invalid for SR200PC20
-
 	udelay(2); // delay 2us > 16MCLK = 16/24 us
 
 	printk("sensor_sr200pc20m_poweron : OK\n");
@@ -77,35 +50,15 @@ static int sensor_sr200pc20m_poweroff(struct sensor_power *main_cfg, struct sens
 	int ret = 0;
 
 	sensor_k_sensor_sel(SENSOR_MAIN); // Select main sensor(sensor SR200PC20)
-
-	udelay(2); // Delay 2us > 16MCLK = 16/24 us
-
 	sensor_k_set_rst_level(0); // Reset valid for SR200PC20
-
 	mdelay(12); // Delay 12ms > 10ms
-
 	sensor_k_set_mclk(0); // Disable MCLK
-
-	udelay(1); // Delay 1us >= 0us
-
+	mdelay(3);
 	sensor_k_set_pd_level(0); // Power down valid for SR200PC20
-
-	udelay(1); // Delay 1us >= 0us
-
-	sensor_k_set_voltage_dvdd(SENSOR_VDD_CLOSED); // Close core vdd
-
-	udelay(1); // Delay 1us >= 0us
-
+	mdelay(1);
 	sensor_k_set_voltage_avdd(SENSOR_VDD_CLOSED); // Close anolog vdd
-
-	udelay(1); // Delay 1us >= 0us
-
-	sensor_k_set_voltage_cammot(SENSOR_VDD_CLOSED); //AF monitor
-
-	udelay(10); // Delay 10us > 9us
-
+	udelay(3); // Delay 1us >= 0us
 	sensor_k_set_voltage_iovdd(SENSOR_VDD_CLOSED);
-
 	udelay(1);
 
 	printk("sensor_sr200pc20m_poweroff : OK\n");
