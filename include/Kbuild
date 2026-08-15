@@ -2,4 +2,3 @@
 # List only non-arch directories below
 
 # Export legacy Spreadtrum userspace headers
-header-y += video/
