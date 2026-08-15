@@ -131,7 +131,7 @@ LOCAL void GSP_SetMiscParameter(void)
 	GSP_PAGES_BOARDER_SPLIT_SET(s_gsp_cfg.misc_info.split_pages);
 
     GSP_DITHER_ENABLE_SET(s_gsp_cfg.misc_info.dithering_en);
-    //GSP_AHB_CLOCK_SET(s_gsp_cfg.misc_info.ahb_clock);
+    GSP_AHB_CLOCK_SET(s_gsp_cfg.misc_info.ahb_clock);
     GSP_CLOCK_SET(s_gsp_cfg.misc_info.gsp_clock);
     GSP_EMC_GAP_SET(s_gsp_cfg.misc_info.gsp_gap);
 }
