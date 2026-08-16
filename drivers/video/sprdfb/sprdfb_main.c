@@ -326,6 +326,14 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 		return -1;
 	}
 
+	/*
+	 * fb core updates info->var.{x,y}offset only after fb_pan_display()
+	 * returns. SPRD refresh() reads fb->var.yoffset directly, so update
+	 * it here before refreshing the display.
+	 */
+	fb->var.xoffset = var->xoffset;
+	fb->var.yoffset = var->yoffset;
+
 	ret = dev->ctrl->refresh(dev);
 	if (ret) {
 		printk(KERN_ERR "[LCD] sprdfb: failed to refresh !!!!\n");
@@ -430,18 +438,34 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 }
 
 
-static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
+static int sprdfb_check_var(struct fb_var_screeninfo *var,
+			    struct fb_info *fb)
 {
+	/*
+	 * The SC8830 framebuffer has a fixed allocation for three pages.
+	 * Legacy minui requests two pages through FBIOPUT_VSCREENINFO.
+	 *
+	 * Keep the physical three-page allocation, but permit userspace
+	 * to use fewer pages and select them through yoffset.
+	 */
+	if (var->yres_virtual != fb->var.yres_virtual) {
+		if (var->yres_virtual >= var->yres &&
+		    var->yres_virtual <= fb->var.yres_virtual)
+			var->yres_virtual = fb->var.yres_virtual;
+		else
+			return -EINVAL;
+	}
+
 	if ((var->xres != fb->var.xres) ||
 			(var->yres != fb->var.yres) ||
 			(var->xres_virtual != fb->var.xres_virtual) ||
-			(var->yres_virtual != fb->var.yres_virtual) ||
 			(var->xoffset != fb->var.xoffset) ||
 #ifndef BIT_PER_PIXEL_SURPPORT
 			(var->bits_per_pixel != fb->var.bits_per_pixel) ||
 #endif
 			(var->grayscale != fb->var.grayscale))
 		return -EINVAL;
+
 	return 0;
 }
 
