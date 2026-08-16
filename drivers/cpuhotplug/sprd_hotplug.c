@@ -249,7 +249,7 @@ static void __cpuinit sprd_plugin_one_cpu_ss(struct work_struct *work)
 	if (num_online_cpus() < g_sd_tuners->cpu_num_limit) {
 		cpuid = cpumask_next_zero(0, cpu_online_mask);
 		if (!g_sd_tuners->cpu_hotplug_disable) {
-			pr_info("!!  we gonna plugin cpu%d  !!\n", cpuid);
+			pr_debug("plugin cpu%d\n", cpuid);
 			cpu_up(cpuid);
 		}
 	}
@@ -264,7 +264,7 @@ static void sprd_unplug_one_cpu_ss()
 	if (num_online_cpus() > 1) {
 		if (!g_sd_tuners->cpu_hotplug_disable) {
 			cpuid = cpumask_next(0, cpu_online_mask);
-			pr_info("!!  we gonna unplug cpu%d  !!\n",cpuid);
+			pr_debug("unplug cpu%d\n", cpuid);
 			cpu_down(cpuid);
 		}
 	}

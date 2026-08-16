@@ -355,7 +355,7 @@ static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 		CPUFREQ_SET_VOLTAGE();
 	}
 
-	pr_info("%u --> %u, real=%u, index=%d\n",
+	pr_debug("%u --> %u, real=%u, index=%d\n",
 		freq->old, freq->new, sprd_raw_get_cpufreq(), index);
 
 #undef CPUFREQ_SET_VOLTAGE
@@ -377,7 +377,7 @@ static void sprd_real_set_cpufreq(struct cpufreq_policy *policy, unsigned int ne
 		mutex_unlock(&freq_lock);
 		return;
 	}
-	pr_info("--xing-- set %u khz for cpu%u\n",
+	pr_debug("--xing-- set %u khz for cpu%u\n",
 		new_speed, policy->cpu);
 	global_freqs.cpu = policy->cpu;
 	global_freqs.new = new_speed;
