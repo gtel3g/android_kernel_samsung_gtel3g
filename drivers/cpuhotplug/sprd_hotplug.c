@@ -32,6 +32,7 @@ static atomic_t hotplug_disable_state = ATOMIC_INIT(HOTPLUG_DISABLE_ACTION_NONE)
 
 #define CPU_HOTPLUG_BOOT_DONE_TIME	(50 * HZ)
 #define SPRD_HOTPLUG_SCHED_PERIOD_TIME	(100)
+#define SPRD_HOTPLUG_MIN_ONLINE_TIME	(1 * HZ)
 
 static struct kobject hotplug_kobj;
 static struct task_struct *ksprd_hotplug;
@@ -41,6 +42,7 @@ static int log_enable = 1;
 
 static struct delayed_work plugin_work;
 static struct delayed_work unplug_work;
+static unsigned long last_cpu_up;
 
 u64 g_prev_cpu_wall[4] = {0};
 u64 g_prev_cpu_idle[4] = {0};
@@ -250,7 +252,8 @@ static void __cpuinit sprd_plugin_one_cpu_ss(struct work_struct *work)
 		cpuid = cpumask_next_zero(0, cpu_online_mask);
 		if (!g_sd_tuners->cpu_hotplug_disable) {
 			pr_debug("plugin cpu%d\n", cpuid);
-			cpu_up(cpuid);
+			if (!cpu_up(cpuid))
+				last_cpu_up = jiffies;
 		}
 	}
 #endif
@@ -258,12 +261,23 @@ static void __cpuinit sprd_plugin_one_cpu_ss(struct work_struct *work)
 }
 static void sprd_unplug_one_cpu_ss()
 {
+	unsigned int cpu;
 	unsigned int cpuid = 0;
 
 #ifdef CONFIG_HOTPLUG_CPU
+	if (time_before(jiffies, last_cpu_up + SPRD_HOTPLUG_MIN_ONLINE_TIME))
+		return;
+
 	if (num_online_cpus() > 1) {
 		if (!g_sd_tuners->cpu_hotplug_disable) {
-			cpuid = cpumask_next(0, cpu_online_mask);
+			for_each_online_cpu(cpu) {
+				if (cpu > cpuid)
+					cpuid = cpu;
+			}
+
+			if (!cpuid)
+				return;
+
 			pr_debug("unplug cpu%d\n", cpuid);
 			cpu_down(cpuid);
 		}
@@ -1025,7 +1039,11 @@ static ssize_t store_cpu_num_min_limit(struct device *dev, struct device_attribu
 	if (ret != 1) {
 		return -EINVAL;
 	}
+	if (input < 1 || input > nr_cpu_ids)
+		return -EINVAL;
+
 	sd_tuners->cpu_num_min_limit = input;
+	sd_check_cpu_sprd(50);
 	return count;
 }
 
