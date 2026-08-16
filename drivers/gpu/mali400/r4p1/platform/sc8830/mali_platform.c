@@ -44,6 +44,7 @@
 #define GPU_GLITCH_FREE_DFS		0
 
 #define UP_THRESHOLD			9/10
+#define GPU_UTILIZATION_INTERVAL_MS	100
 
 #define GPU_HARDWARE_MIN_DIVISION	1
 #define GPU_HARDWARE_MAX_DIVISION	4
@@ -581,7 +582,7 @@ static struct mali_gpu_device_data mali_gpu_data =
 {
 	.shared_mem_size = ARCH_MALI_MEMORY_SIZE_DEFAULT,
 	.utilization_interval = 300,
-	.utilization_callback = mali_platform_utilization,
+	.utilization_interval = GPU_UTILIZATION_INTERVAL_MS,
 };
 
 static struct platform_device mali_gpu_device =
