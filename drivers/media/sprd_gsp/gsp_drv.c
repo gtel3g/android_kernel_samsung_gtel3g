@@ -2152,6 +2152,7 @@ static volatile GSP_CAPABILITY_T* GSP_Config_Capability(void)
                 s_gsp_capability.video_need_copy = 1;
                 break;
             case 0x8730b001://tshark, black line bug fixed
+			case 0x8730c000://tshark2, black line bug fixed
                 s_gsp_capability.version = 0x05;
                 s_gsp_capability.max_layer_cnt = 2;
                 s_gsp_capability.scale_range_up=256;
