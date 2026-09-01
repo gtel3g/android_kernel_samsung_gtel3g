@@ -581,8 +581,8 @@ static struct resource mali_gpu_resources[] =
 static struct mali_gpu_device_data mali_gpu_data =
 {
 	.shared_mem_size = ARCH_MALI_MEMORY_SIZE_DEFAULT,
-	.utilization_interval = 300,
 	.utilization_interval = GPU_UTILIZATION_INTERVAL_MS,
+	.utilization_callback = mali_platform_utilization,
 };
 
 static struct platform_device mali_gpu_device =
