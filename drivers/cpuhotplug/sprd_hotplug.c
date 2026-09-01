@@ -109,6 +109,8 @@ struct sd_dbs_tuners {
         unsigned int cpu_down_count;                                                                     
         unsigned int cpu_num_limit;                                                                      
         unsigned int cpu_num_min_limit;                                                                  
+        unsigned int cpu_num_base_min_limit;
+        unsigned int cpu_num_boost_min_limit;
 };                             
 
 static unsigned int ga_percpu_total_load[MAX_CPU_NUM][MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE] = {{0}};
@@ -263,8 +265,18 @@ static void sprd_unplug_one_cpu_ss()
 {
 	unsigned int cpu;
 	unsigned int cpuid = 0;
+	unsigned int min_cpus;
 
 #ifdef CONFIG_HOTPLUG_CPU
+	if (!g_sd_tuners)
+		return;
+
+	min_cpus = min(g_sd_tuners->cpu_num_min_limit,
+			g_sd_tuners->cpu_num_limit);
+
+	if (num_online_cpus() <= min_cpus)
+		return;
+
 	if (time_before(jiffies, last_cpu_up + SPRD_HOTPLUG_MIN_ONLINE_TIME))
 		return;
 
@@ -729,16 +741,24 @@ int _store_cpu_num_min_limit(unsigned int input)
 	if (log_enable)
 		printk("%s: input = %d\n", __func__, input);
 
-	if(sd_tuners)
-	{
-		sd_tuners->cpu_num_min_limit = input;
-		sd_check_cpu_sprd(50);
-	}
-	else
-	{
+	if (!sd_tuners) {
 		pr_info("[store_cpu_num_min_limit] current governor is not sprdemand\n");
 		return -EINVAL;
 	}
+
+	if (input < 1 || input > nr_cpu_ids)
+		return -EINVAL;
+
+	/*
+	 * In-kernel users such as touchscreen drivers request a temporary
+	 * CPU boost. Do not overwrite the persistent userspace floor.
+	 */
+	sd_tuners->cpu_num_boost_min_limit = input;
+	sd_tuners->cpu_num_min_limit =
+		max(sd_tuners->cpu_num_base_min_limit,
+		    sd_tuners->cpu_num_boost_min_limit);
+
+	sd_check_cpu_sprd(50);
 
 	return 0;
 }
@@ -776,6 +796,8 @@ static int sd_tuners_init(struct sd_dbs_tuners *tuners)
 	tuners->cpu_down_threshold = DEF_CPU_LOAD_DOWN_THRESHOLD;
 	tuners->cpu_down_count = DEF_CPU_DOWN_COUNT;
 	tuners->cpu_num_limit = nr_cpu_ids;
+	tuners->cpu_num_base_min_limit = 1;
+	tuners->cpu_num_boost_min_limit = 1;
 	tuners->cpu_num_min_limit = 1;
 	if (tuners->cpu_num_limit > 1)
 		tuners->cpu_hotplug_disable = false;
@@ -1042,7 +1064,15 @@ static ssize_t store_cpu_num_min_limit(struct device *dev, struct device_attribu
 	if (input < 1 || input > nr_cpu_ids)
 		return -EINVAL;
 
-	sd_tuners->cpu_num_min_limit = input;
+	/*
+	 * Sysfs is the persistent CPU floor controlled by userspace,
+	 * while in-kernel clients may temporarily request a higher floor.
+	 */
+	sd_tuners->cpu_num_base_min_limit = input;
+	sd_tuners->cpu_num_min_limit =
+		max(sd_tuners->cpu_num_base_min_limit,
+		    sd_tuners->cpu_num_boost_min_limit);
+
 	sd_check_cpu_sprd(50);
 	return count;
 }
