@@ -452,7 +452,7 @@
 		zt7554,y_resolution = <1279>;
 		zt7554,ext_fw_name = "/sdcard/t560.bin";
 		tsp_vdd-supply = <&vddvibr>;
-		zt7554,core_num = <4>;
+		zt7554,core_num = <3>;
 		zt7554,model_name = "T561";
 	};
 };
