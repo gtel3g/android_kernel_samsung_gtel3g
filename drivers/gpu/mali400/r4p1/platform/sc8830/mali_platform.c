@@ -43,6 +43,11 @@
 
 #define GPU_GLITCH_FREE_DFS		0
 
+#ifdef CONFIG_MACH_GTEL3G
+#undef DFS_MAX_FREQ
+#define DFS_MAX_FREQ			512000
+#endif
+
 #define UP_THRESHOLD			9/10
 #define GPU_UTILIZATION_INTERVAL_MS	100
 
@@ -53,7 +58,11 @@
 /*tshark 28nm*/
 #define DFS_FREQ_NUM			8
 
+#ifdef CONFIG_MACH_GTEL3G
+#define GPU_MAX_FREQ			512000
+#else
 #define GPU_MAX_FREQ			460800
+#endif
 #define GPU_MIN_FREQ			64000
 
 #define GPU_150M_FREQ_INDEX 	5
@@ -248,6 +257,24 @@ static struct gpu_dfs_context gpu_dfs_ctx=
 /*tshark 28nm*/
 	.dfs_freq_list=
 	{
+#ifdef CONFIG_MACH_GTEL3G
+		/* 512 MHz: clk_312m / 1 */
+		&dfs_freq_full_list[8],
+		/* 460.8 MHz: clk_460m8 / 1 */
+		&dfs_freq_full_list[0],
+		/* 384 MHz: clk_384m / 1 */
+		&dfs_freq_full_list[4],
+		/* 256 MHz: clk_256m / 1 */
+		&dfs_freq_full_list[12],
+		/* 192 MHz: clk_384m / 2 */
+		&dfs_freq_full_list[5],
+		/* 153.6 MHz: clk_153m6 / 1 */
+		&dfs_freq_full_list[20],
+		/* 128 MHz: clk_256m / 2 */
+		&dfs_freq_full_list[13],
+		/* 64 MHz: clk_256m / 4 */
+		&dfs_freq_full_list[15],
+#else
 		/*index:  0 freq:460800 freq_select:  6  div_select:  1*/
 		&dfs_freq_full_list[0],
 		/*index:  1 freq:384000 freq_select:  5  div_select:  1*/
@@ -264,6 +291,7 @@ static struct gpu_dfs_context gpu_dfs_ctx=
 		&dfs_freq_full_list[17],
 		/*index:  7 freq:64000  freq_select:  2  div_select:  4*/
 		&dfs_freq_full_list[15],
+#endif
 	},
 #elif defined (CONFIG_ARCH_SCX35L)
 /*sharkl 28nm*/
@@ -675,6 +703,21 @@ int  mali_power_initialize(struct platform_device *pdev)
 	}
 #endif
 	udelay(100);
+
+#ifdef CONFIG_MACH_GTEL3G
+	/*
+	 * SCX30G clock names describe the original PLL layout.
+	 * GTEL3G uses different PLL rates, so build DVFS from the
+	 * physical parent rates reported by the clock framework.
+	 */
+	for (i = 0; i < gpu_clk_num; i++) {
+		unsigned long rate;
+
+		rate = clk_get_rate(gpu_clk_src[i].clk_src);
+		if (rate)
+			gpu_clk_src[i].freq = rate / 1000;
+	}
+#endif
 
 	gpu_dfs_context_init();
 	gpufreq_limit_init();
