@@ -76,6 +76,7 @@ static void early_suspend(struct work_struct *work)
 	struct early_suspend *pos;
 	unsigned long irqflags;
 	int abort = 0;
+	int stop_handlers = 0;
 
 	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
@@ -95,6 +96,18 @@ static void early_suspend(struct work_struct *work)
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("early_suspend: call handlers\n");
 	list_for_each_entry(pos, &early_suspend_handlers, link) {
+		/*
+		 * A wake request may arrive while an earlier suspend handler
+		 * is still running. Do not let the stale early-suspend pass
+		 * continue shutting devices down after wake has been requested.
+		 */
+		spin_lock_irqsave(&state_lock, irqflags);
+		stop_handlers = !(state & SUSPEND_REQUESTED);
+		spin_unlock_irqrestore(&state_lock, irqflags);
+
+		if (stop_handlers)
+			break;
+
 		if (pos->suspend != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("early_suspend: calling %pf\n", pos->suspend);
