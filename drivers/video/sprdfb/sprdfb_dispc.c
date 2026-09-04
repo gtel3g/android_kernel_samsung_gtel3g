@@ -575,12 +575,6 @@ static void dispc_run(struct sprdfb_device *dev)
 		} else {
 #ifndef CONFIG_FB_TRIPLE_FRAMEBUFFER
 			dispc_sync(dev);
-#else
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
-			if (SPRD_OVERLAY_STATUS_STARTED ==
-					dispc_ctx.overlay_state)
-				dispc_sync(dev);
-#endif
 #endif
 		}
 	} else {
