@@ -18,7 +18,7 @@
 /memreserve/ 0x9EA44000 0xBB8000; /* 7.4Mb */
 
 /* memory reserved for ION */
-/memreserve/ 0x9F5FC000 0x7D4000; /* 5MK */
+/memreserve/ 0x9F5FC000 0x1004000; /* 5MK */
 
 /include/ "sprd-scx35.dtsi"
 /include/ "sprd-scx35_sc7730.dtsi"
@@ -600,7 +600,7 @@
 	};
 
 	sprd,ion-heap@3 {
-		sprd,ion-heap-mem = <0x9f600000 0x7d0000>;
+		sprd,ion-heap-mem = <0x9f600000 0x1000000>;
 	};
 };
 
