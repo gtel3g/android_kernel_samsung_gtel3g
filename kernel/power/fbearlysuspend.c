@@ -38,12 +38,19 @@ static void stop_drawing_early_suspend(struct early_suspend *h)
 	spin_unlock_irqrestore(&fb_state_lock, irq_flags);
 
 	wake_up_all(&fb_state_wq);
-	ret = wait_event_timeout(fb_state_wq,
-				 fb_state == FB_STATE_STOPPED_DRAWING,
-				 HZ);
-	if (unlikely(fb_state != FB_STATE_STOPPED_DRAWING))
-		pr_warning("stop_drawing_early_suspend: timeout waiting for "
-			   "userspace to stop drawing\n");
+	/*
+	 * Android 9 no longer consumes the legacy wait_for_fb_sleep/wake
+	 * handshake on this device. Waiting one full second here leaves the
+	 * early-suspend sequence running after a wake request and causes the
+	 * framebuffer/display stack to be suspended again during resume.
+	 *
+	 * Keep the legacy state notification, but do not block suspend on
+	 * userspace acknowledgement.
+	 */
+	spin_lock_irqsave(&fb_state_lock, irq_flags);
+	fb_state = FB_STATE_STOPPED_DRAWING;
+	spin_unlock_irqrestore(&fb_state_lock, irq_flags);
+	wake_up_all(&fb_state_wq);
 }
 
 /* tell userspace to start drawing */
