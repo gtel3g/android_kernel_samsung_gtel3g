@@ -374,6 +374,18 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 		    !strncmp(buf, s->label, len)) {
 #ifdef CONFIG_EARLYSUSPEND
 			if (state == PM_SUSPEND_ON || s->state) {
+				/*
+				 * Android libsuspend retries /sys/power/state after a
+				 * successful write. Legacy early-suspend returns from
+				 * the write immediately instead of blocking until resume,
+				 * which otherwise causes 100 ms duplicate suspend requests.
+				 */
+				if (s->state != PM_SUSPEND_ON &&
+				    get_suspend_state() == s->state) {
+					error = -EBUSY;
+					break;
+				}
+
 				error = 0;
 				request_suspend_state(s->state);
 				break;
