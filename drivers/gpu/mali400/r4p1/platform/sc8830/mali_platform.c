@@ -43,11 +43,6 @@
 
 #define GPU_GLITCH_FREE_DFS		0
 
-#ifdef CONFIG_MACH_GTEL3G
-#undef DFS_MAX_FREQ
-#define DFS_MAX_FREQ			512000
-#endif
-
 #define UP_THRESHOLD			9/10
 #define GPU_UTILIZATION_INTERVAL_MS	100
 
@@ -58,11 +53,7 @@
 /*tshark 28nm*/
 #define DFS_FREQ_NUM			8
 
-#ifdef CONFIG_MACH_GTEL3G
-#define GPU_MAX_FREQ			512000
-#else
 #define GPU_MAX_FREQ			460800
-#endif
 #define GPU_MIN_FREQ			64000
 
 #define GPU_150M_FREQ_INDEX 	5
@@ -257,24 +248,6 @@ static struct gpu_dfs_context gpu_dfs_ctx=
 /*tshark 28nm*/
 	.dfs_freq_list=
 	{
-#ifdef CONFIG_MACH_GTEL3G
-		/* 512 MHz: clk_312m / 1 */
-		&dfs_freq_full_list[8],
-		/* 460.8 MHz: clk_460m8 / 1 */
-		&dfs_freq_full_list[0],
-		/* 384 MHz: clk_384m / 1 */
-		&dfs_freq_full_list[4],
-		/* 256 MHz: clk_256m / 1 */
-		&dfs_freq_full_list[12],
-		/* 192 MHz: clk_384m / 2 */
-		&dfs_freq_full_list[5],
-		/* 153.6 MHz: clk_153m6 / 1 */
-		&dfs_freq_full_list[20],
-		/* 128 MHz: clk_256m / 2 */
-		&dfs_freq_full_list[13],
-		/* 64 MHz: clk_256m / 4 */
-		&dfs_freq_full_list[15],
-#else
 		/*index:  0 freq:460800 freq_select:  6  div_select:  1*/
 		&dfs_freq_full_list[0],
 		/*index:  1 freq:384000 freq_select:  5  div_select:  1*/
@@ -291,7 +264,6 @@ static struct gpu_dfs_context gpu_dfs_ctx=
 		&dfs_freq_full_list[17],
 		/*index:  7 freq:64000  freq_select:  2  div_select:  4*/
 		&dfs_freq_full_list[15],
-#endif
 	},
 #elif defined (CONFIG_ARCH_SCX35L)
 /*sharkl 28nm*/
@@ -527,8 +499,31 @@ static void gpu_dfs_full_list_generate(void)
 static void gpu_dfs_context_init(void)
 {
 	int i=0;
+	int dfs_max_freq = DFS_MAX_FREQ;
+	int gpu_max_freq = GPU_MAX_FREQ;
 
 	gpu_dfs_full_list_generate();
+
+#ifdef CONFIG_ARCH_SCX30G
+	/* Select the 512 MHz layout by clock rate, regardless of machine name. */
+	if (gpu_clk_src[0].freq == 460800 &&
+	    gpu_clk_src[1].freq == 384000 &&
+	    gpu_clk_src[2].freq == 512000 &&
+	    gpu_clk_src[3].freq == 256000 &&
+	    gpu_clk_src[5].freq == 153600) {
+		gpu_dfs_ctx.dfs_freq_list[0] = &dfs_freq_full_list[8];
+		gpu_dfs_ctx.dfs_freq_list[1] = &dfs_freq_full_list[0];
+		gpu_dfs_ctx.dfs_freq_list[2] = &dfs_freq_full_list[4];
+		gpu_dfs_ctx.dfs_freq_list[3] = &dfs_freq_full_list[12];
+		gpu_dfs_ctx.dfs_freq_list[4] = &dfs_freq_full_list[5];
+		gpu_dfs_ctx.dfs_freq_list[5] = &dfs_freq_full_list[20];
+		gpu_dfs_ctx.dfs_freq_list[6] = &dfs_freq_full_list[13];
+		gpu_dfs_ctx.dfs_freq_list[7] = &dfs_freq_full_list[15];
+		dfs_max_freq = 512000;
+		gpu_max_freq = 512000;
+		pr_info("mali: SCX30G 512 MHz GPU clock layout detected\n");
+	}
+#endif
 
 	for(i=0;i<gpu_dfs_ctx.freq_list_len;i++)
 	{
@@ -539,10 +534,10 @@ static void gpu_dfs_context_init(void)
 		gpu_dfs_ctx.dfs_freq_list[i]->up_threshold,gpu_dfs_ctx.dfs_freq_list[i]->down_threshold));
 	}
 
-	i=freq_search(gpu_dfs_ctx.dfs_freq_list,gpu_dfs_ctx.freq_list_len,DFS_MAX_FREQ);
+	i=freq_search(gpu_dfs_ctx.dfs_freq_list,gpu_dfs_ctx.freq_list_len,dfs_max_freq);
 	if(i<0)
 	{
-		pr_err("invalid DFS_MAX_FREQ:%d\n",DFS_MAX_FREQ);
+		pr_err("invalid DFS_MAX_FREQ:%d\n",dfs_max_freq);
 		gpu_dfs_ctx.cur_freq_p=gpu_dfs_ctx.dfs_freq_list[0];
 		gpu_dfs_ctx.next_freq_p=gpu_dfs_ctx.dfs_freq_list[0];
 		gpu_dfs_ctx.dfs_max_freq_p=gpu_dfs_ctx.dfs_freq_list[0];
@@ -569,10 +564,10 @@ static void gpu_dfs_context_init(void)
 		gpu_dfs_ctx.default_min_freq_p=gpu_dfs_ctx.dfs_freq_list[i];
 	}
 
-	i=freq_search(gpu_dfs_ctx.dfs_freq_list,gpu_dfs_ctx.freq_list_len,GPU_MAX_FREQ);
+	i=freq_search(gpu_dfs_ctx.dfs_freq_list,gpu_dfs_ctx.freq_list_len,gpu_max_freq);
 	if(i<0)
 	{
-		pr_err("invalid GPU_MAX_FREQ:%d\n",GPU_MIN_FREQ);
+		pr_err("invalid GPU_MAX_FREQ:%d\n",gpu_max_freq);
 		gpu_dfs_ctx.gpu_max_freq_p=gpu_dfs_ctx.dfs_freq_list[0];
 	}
 	else
@@ -704,12 +699,8 @@ int  mali_power_initialize(struct platform_device *pdev)
 #endif
 	udelay(100);
 
-#ifdef CONFIG_MACH_GTEL3G
-	/*
-	 * SCX30G clock names describe the original PLL layout.
-	 * GTEL3G uses different PLL rates, so build DVFS from the
-	 * physical parent rates reported by the clock framework.
-	 */
+#ifdef CONFIG_ARCH_SCX30G
+	/* Populate SCX30G DVFS from actual parent rates on each board. */
 	for (i = 0; i < gpu_clk_num; i++) {
 		unsigned long rate;
 
