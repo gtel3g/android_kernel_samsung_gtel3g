@@ -27,6 +27,9 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/rcupdate.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
 #include "input-compat.h"
 
 #if defined(CONFIG_SPRD_DEBUG)
@@ -36,6 +39,29 @@
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
+
+/* Disabled by default; the Lineage hardware service controls this at runtime. */
+static int nav_keys_disabled;
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static bool nav_screen_awake = true;
+
+static void input_navkeys_early_suspend(struct early_suspend *h)
+{
+	ACCESS_ONCE(nav_screen_awake) = false;
+}
+
+static void input_navkeys_late_resume(struct early_suspend *h)
+{
+	ACCESS_ONCE(nav_screen_awake) = true;
+}
+
+static struct early_suspend input_navkeys_suspend = {
+	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
+	.suspend = input_navkeys_early_suspend,
+	.resume = input_navkeys_late_resume,
+};
+#endif
 
 #define INPUT_MAX_CHAR_DEVICES		1024
 #define INPUT_FIRST_DYNAMIC_DEV		256
@@ -388,6 +414,23 @@ static void input_handle_event(struct input_dev *dev,
 			       unsigned int type, unsigned int code, int value)
 {
 	int disposition;
+
+	if (type == EV_KEY && ACCESS_ONCE(nav_keys_disabled) &&
+	    dev->id.bustype != BUS_USB && dev->id.bustype != BUS_BLUETOOTH &&
+	    (code == KEY_HOME || code == KEY_BACK || code == KEY_RECENT ||
+	     code == KEY_MENU)) {
+#ifdef CONFIG_HAS_EARLYSUSPEND
+		/* A hardware navigation key may still wake the display. */
+		if (ACCESS_ONCE(nav_screen_awake)) {
+#else
+		/* Without screen state, keep the mechanical Home wake key usable. */
+		if (code != KEY_HOME) {
+#endif
+			/* Complete a press that started before the mode changed or woke us. */
+			if (value || !test_bit(code, dev->key))
+				return;
+		}
+	}
 
 	disposition = input_get_disposition(dev, type, code, &value);
 
@@ -2399,6 +2442,30 @@ void input_free_minor(unsigned int minor)
 }
 EXPORT_SYMBOL(input_free_minor);
 
+static ssize_t nav_keys_disabled_show(struct class *class,
+				      struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", ACCESS_ONCE(nav_keys_disabled));
+}
+
+static ssize_t nav_keys_disabled_store(struct class *class,
+				       struct class_attribute *attr,
+				       const char *buf, size_t count)
+{
+	int value;
+	int error = kstrtoint(buf, 0, &value);
+
+	if (error)
+		return error;
+	if (value != 0 && value != 1)
+		return -EINVAL;
+	ACCESS_ONCE(nav_keys_disabled) = value;
+	return count;
+}
+
+static CLASS_ATTR(nav_keys_disabled, 0644, nav_keys_disabled_show,
+		  nav_keys_disabled_store);
+
 static int __init input_init(void)
 {
 	int err;
@@ -2419,9 +2486,18 @@ static int __init input_init(void)
 		pr_err("unable to register char major %d", INPUT_MAJOR);
 		goto fail2;
 	}
+	err = class_create_file(&input_class, &class_attr_nav_keys_disabled);
+	if (err)
+		goto fail3;
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	register_early_suspend(&input_navkeys_suspend);
+#endif
 
 	return 0;
 
+ fail3:	unregister_chrdev_region(MKDEV(INPUT_MAJOR, 0),
+				 INPUT_MAX_CHAR_DEVICES);
  fail2:	input_proc_exit();
  fail1:	class_unregister(&input_class);
 	return err;
@@ -2429,6 +2505,10 @@ static int __init input_init(void)
 
 static void __exit input_exit(void)
 {
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&input_navkeys_suspend);
+#endif
+	class_remove_file(&input_class, &class_attr_nav_keys_disabled);
 	input_proc_exit();
 	unregister_chrdev_region(MKDEV(INPUT_MAJOR, 0),
 				 INPUT_MAX_CHAR_DEVICES);
